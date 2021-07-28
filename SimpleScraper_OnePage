@@ -1,0 +1,23 @@
+from requests.sessions import Request
+import scrapy
+#Use scrapy crawl datacenters -o datacenters.csv to run and receive and output
+class DatacentersSpider(scrapy.Spider):
+    name = 'datacenters'
+    allowed_domains = ['datacenters.com']
+    start_urls = ['http://datacenters.com/locations']
+
+    def parse(self, response):
+        for link in response.css('div.LocationsSearch__location__J7LUu a::attr(href)'):
+            yield response.follow('https://www.datacenters.com'+link.get(), callback = self.get_info)
+
+    def get_info(self, response):
+        yield {'Full Name': response.css('h1.LocationProviderDetail__locationNameXs__2UKtL::text').get(),
+               'Number': response.xpath('//div[@class="LocationProviderDetail__phoneItemWrapper__3-SfO"]/div/span/text()').extract_first(),
+               'SQFT': response.xpath('//div[@class="LocationProviderDetail__facilityDetails__M1ErX"]/div/span/text()').extract_first()
+               #'Colocation Space':response.xpath('//div[@class="LocationProviderDetail__facilityDetails__M1ErX"]/div/span/text()').extract_first(),
+               #'Total Power': response.xpath('//div[@class="LocationProviderDetail__facilityDetails__M1ErX"]/div/span/text()').extract_first()
+            }
+        next_page_url = response.css('Control__control__3QmOm Pagination__pageItem__3JmJI Pagination__symbol__1b4x- > a::attr(button)').extract_first()
+        if next_page_url:
+            next_page_url = response.urljoin(next_page_url)
+            yield scrapy.Request(url=next_page_url, callback=self.parse)
