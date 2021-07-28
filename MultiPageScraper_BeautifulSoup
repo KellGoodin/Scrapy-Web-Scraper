@@ -1,0 +1,72 @@
+def get_locations():
+    import requests
+  
+    url = "https://www.datacenters.com/api/v1/locations"
+
+    params = {
+        "page": "1",
+        "per_page": "2591",
+        "query": "",
+        "withProducts": "false",
+        "showHidden": "false",
+        "nearby": "false",
+        "radius": "0",
+        "bounds": "",
+        "circleBounds": "",
+        "polygonPath": ""
+    }
+
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    response = requests.get(url, params=params, headers=headers)
+    response.raise_for_status()
+
+    yield from response.json()["locations"]
+
+
+def get_additional_info(location):
+    import requests
+    from bs4 import BeautifulSoup as Soup
+    import json
+
+    url = "https://www.datacenters.com" + location["url"]
+
+    headers = {
+        "Accept-Encoding": "gzip, deflate",
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+
+    soup = Soup(response.content, "html.parser")
+
+    script = soup.select_one("script[data-component-name=\"LocationProviderDetail\"]")
+    content = json.loads(script.string)
+
+    return content["location"]["phone"], content["location"]["grossBuildingSize"]
+
+
+def main():
+
+    from itertools import islice
+    f = open('final_data.txt', 'w')
+    for location in islice(get_locations(), 2591):
+        phone, sqft = get_additional_info(location)
+        f.write("Name: {}\nAddress: {}\nSqft: {}\nPhone: {}\n\n".format(
+            location["name"],
+            location["fullAddress"],
+            sqft,
+            phone
+        ))
+    f.close
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
